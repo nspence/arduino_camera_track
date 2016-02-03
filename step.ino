@@ -1,11 +1,7 @@
-// Run a A4998 Stepstick from an Arduino UNO.
-// Paul Hurley Aug 2015
-
 /*
- * 670ma rated per coil
- * VREF = max_current / 2 = 0.3V
- * 
- * 
+ * For motor driver DRV8834:
+ *   NEMA 14 - 670ma rated per coil
+ *   VREF = max_current / 2 = 0.3V
  */
 
 
