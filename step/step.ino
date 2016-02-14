@@ -11,8 +11,8 @@
 
 #define REV_STEPS 200.0
 #define STEP_MODE 0.5 //.5 for half, 1 for full
-#define RAIL_LENGTH 500.0 //mm
-#define MM_PER_REV 36.0 //mm
+#define RAIL_LENGTH 337.0 //mm
+#define MM_PER_REV 39.0 //mm
 //#define MS_FOR_TRACK 6000 //ms, how long the entire track run should take for continuous mode
 
 //Motor pins
@@ -119,11 +119,14 @@ void continuous(int steps)
 {
   Serial.println("Begin"); 
   digitalWrite(PIN_ENABLE, LOW); // enable power to motor
+
+  Serial.print("Revolutions: ");
+  Serial.println(RAIL_LENGTH / MM_PER_REV);
   
-  for (int revs=0; revs<RAIL_LENGTH / MM_PER_REV; revs++)
+  for (int revs=0; revs<RAIL_LENGTH / MM_PER_REV * REV_STEPS / STEP_MODE; revs++)
   {
-    for (int x=0; x<REV_STEPS / STEP_MODE; x++)
-    {
+//    for (int x=0; x<REV_STEPS / STEP_MODE; x++)
+//    {
       digitalWrite(PIN_STEP, HIGH); // Output high
       delay(1);
       digitalWrite(PIN_STEP, LOW); // Output low
@@ -133,7 +136,7 @@ void continuous(int steps)
         digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
         return;
       } 
-    }
+//    }
   }
 
   digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
