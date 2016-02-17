@@ -4,6 +4,18 @@
  *   VREF = max_current / 2 = 0.3V
  */
 
+struct {
+  uint32_t timelapseTime;  // Total duration of movement along slider for timelapse mode
+  uint32_t continuousTime; // Total duration of movement along slider for continuous mode
+  uint32_t LEDflashTime;   // LED blink rate indicates selected speed
+} speed[] = {
+   5 * 60 * 1000.0, 3000.0,  1000000L / 2, //  5 min tl, 3s c,   2 Hz blink
+  10 * 60 * 1000.0, 6000.0,  1000000L,     // 10 min tl, 6s c,   1 Hz blink
+  20 * 60 * 1000.0, 10000.0, 1000000L * 2, // 20 min tl, 10s c,  1/2 Hz blink
+  60 * 60 * 1000.0, 15000.0, 1000000L * 3  // 60 min tl, 15s c,  1/3 Hz blink
+};
+#define N_SPEEDS (sizeof(speed) / sizeof(speed[0]))
+
 
 #define REV_STEPS 200.0
 #define STEP_MODE 0.5 //.5 for half, 1 for full
@@ -19,8 +31,9 @@
 
 #define PIN_START 8
 #define PIN_TRACK_MODE 9
-#define PIN_SPEED 10
-#define PIN_SHUTTER 13
+#define PIN_SELECT 11
+#define PIN_SHUTTER 12
+#define PIN_LED 13
 #define BAUD (9600)
 
 float rev_delay;
@@ -30,7 +43,14 @@ int steps_per_track;
 int steps_track_offset = 0;
 int step_increment = 1;
 boolean button_start_is_pressed = 0;
+boolean button_select_is_pressed = 0;
 boolean needs_reset = 0;
+int direction_mode = LOW;
+
+// Speed selection variables
+static uint8_t  led;
+uint8_t  speedIdx  = 0;
+uint32_t startTime = 0;      // micros() value when slider movement started
 
 void setup() 
 {
@@ -39,9 +59,12 @@ void setup()
   pinMode(PIN_STEP, OUTPUT); // Step
   pinMode(PIN_DIRECTION, OUTPUT); // Dir
   pinMode(PIN_STEP_MODE, OUTPUT);
+  pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_START, INPUT_PULLUP);
+  pinMode(PIN_SELECT, INPUT_PULLUP);
   pinMode(PIN_TRACK_MODE, INPUT_PULLUP);
-  pinMode(PIN_SPEED, INPUT_PULLUP);
+
+  digitalWrite(PIN_LED, HIGH);       // LED steady on during init
 
   digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
   digitalWrite(PIN_DIRECTION, LOW); // Set Dir high
@@ -53,6 +76,7 @@ void setup()
   }
 
   steps_per_track = RAIL_LENGTH / MM_PER_REV * REV_STEPS / STEP_MODE;
+  digitalWrite(PIN_LED, LOW);       // LED off init complete
 }
 
 void loop()
@@ -63,7 +87,6 @@ void loop()
   int num_steps;
   
   track_mode = digitalRead(PIN_TRACK_MODE); //1 for continuous, 0 for timelapse
-  track_speed = digitalRead(PIN_SPEED); //1 for slow, 0 for fast
   
   if (start_stop_pressed())
   {
@@ -78,7 +101,7 @@ void loop()
   
     if (track_mode) //continuous mode selected
     {
-      ms_for_track = track_speed ? 6000.0 : 3000.0;
+      ms_for_track = speed[speedIdx].continuousTime;
       num_steps = steps_per_track;
       step_delay = ms_for_track / num_steps;
       rev_delay = 0;
@@ -92,7 +115,22 @@ void loop()
     Serial.println(steps_track_offset);
   }
 
-  delay(200);
+  // Change speeds
+  if (mode_pressed())
+  {
+    speedIdx = (speedIdx + 1) % N_SPEEDS;
+    Serial.print("Speed selected: ");
+    Serial.println(track_mode ? speed[speedIdx].continuousTime : speed[speedIdx].timelapseTime);
+  }
+  
+  // Blink LED for speed selection  
+  if((micros() - startTime) > (speed[speedIdx].LEDflashTime / 2)) {
+    digitalWrite(PIN_LED, led++ & 1);
+    startTime = micros();
+  }
+
+
+  //delay(100);
 }
 
 boolean start_stop_pressed()
@@ -111,6 +149,22 @@ boolean start_stop_pressed()
   return 0;
 }
 
+boolean mode_pressed()
+{
+  int pressed = !digitalRead(PIN_SELECT);
+
+  if (!pressed) {
+    button_select_is_pressed = 0;
+    return 0;
+  }
+  else if (pressed && !button_select_is_pressed) {
+    button_select_is_pressed = 1;
+    return 1;
+  }
+
+  return 0;
+}
+
 void continuous(int steps)
 {
   Serial.println("Begin"); 
@@ -121,8 +175,6 @@ void continuous(int steps)
   
   for (int revs=0; revs<RAIL_LENGTH / MM_PER_REV * REV_STEPS / STEP_MODE; revs++)
   {
-//    for (int x=0; x<REV_STEPS / STEP_MODE; x++)
-//    {
       digitalWrite(PIN_STEP, HIGH); // Output high
       delay(1);
       digitalWrite(PIN_STEP, LOW); // Output low
@@ -131,8 +183,7 @@ void continuous(int steps)
       if (start_stop_pressed()) {
         digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
         return;
-      } 
-//    }
+      }
   }
 
   digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
@@ -167,3 +218,25 @@ void timelapse()
     delay(rev_delay / 2);
   }
 }
+
+void switch_direction() {
+  direction_mode = direction_mode == LOW ? HIGH : LOW;
+  digitalWrite(PIN_DIRECTION, direction_mode);
+}
+
+// Process any pending Bluetooth input
+//void process_bluetooth() {
+//  char bt_cmd;
+//  
+//  if(BlueToothSerial.available())
+//  {
+//    bt_cmd = char(BlueToothSerial.read());
+//    Serial.print(bt_cmd);
+//    switch(bt_cmd) {
+//      case '1':    break;
+//    }
+//  }
+//}
+
+
+
