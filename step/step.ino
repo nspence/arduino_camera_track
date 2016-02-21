@@ -1,7 +1,8 @@
 /*
- * For motor driver DRV8834:
- *   NEMA 14 - 670ma rated per coil
- *   VREF = max_current / 2 = 0.3V
+ * 670ma rated per coil
+ * VREF = max_current / 2 = 0.3V
+ * 
+ * 
  */
 
 struct {
@@ -21,7 +22,7 @@ struct {
 #define STEP_MODE 0.5 //.5 for half, 1 for full
 #define RAIL_LENGTH 337.0 //mm
 #define MM_PER_REV 39.0 //mm
-//#define MS_FOR_TRACK 6000 //ms, how long the entire track run should take for continuous mode
+#define GEAR_RATIO 1.0 //step down ratio of gearing (1:GEAR_RATIO)
 
 //Motor pins
 #define PIN_ENABLE 6
@@ -39,8 +40,7 @@ struct {
 float rev_delay;
 float step_delay;
 float ms_for_track;
-int steps_per_track;
-int steps_track_offset = 0;
+long steps_per_track;
 int step_increment = 1;
 boolean button_start_is_pressed = 0;
 boolean button_select_is_pressed = 0;
@@ -51,6 +51,7 @@ int direction_mode = LOW;
 static uint8_t  led;
 uint8_t  speedIdx  = 0;
 uint32_t startTime = 0;      // micros() value when slider movement started
+
 
 void setup() 
 {
@@ -75,7 +76,7 @@ void setup()
     digitalWrite(PIN_STEP_MODE, LOW); //Set mode to full step
   }
 
-  steps_per_track = RAIL_LENGTH / MM_PER_REV * REV_STEPS / STEP_MODE;
+  steps_per_track = RAIL_LENGTH / MM_PER_REV * REV_STEPS / STEP_MODE * GEAR_RATIO;
   digitalWrite(PIN_LED, LOW);       // LED off init complete
 }
 
@@ -96,23 +97,23 @@ void loop()
     {
       step_delay = 10;
       rev_delay = 5000;
-      timelapse();
+      timelapse(steps_per_track, 60, speed[speedIdx].timelapseTime);
     }
   
     if (track_mode) //continuous mode selected
     {
       ms_for_track = speed[speedIdx].continuousTime;
-      num_steps = steps_per_track;
-      step_delay = ms_for_track / num_steps;
+      step_delay = ms_for_track / steps_per_track;
       rev_delay = 0;
       Serial.print("Step delay: ");
       Serial.println(step_delay);
-      continuous(num_steps);
+      Serial.print("Revolutions: ");
+      Serial.println(RAIL_LENGTH / MM_PER_REV);
+      
+      continuous(steps_per_track);
     }
 
     needs_reset = 1;
-    Serial.print("Steps: ");
-    Serial.println(steps_track_offset);
   }
 
   // Change speeds
@@ -165,21 +166,17 @@ boolean mode_pressed()
   return 0;
 }
 
-void continuous(int steps)
+void continuous(long num_steps)
 {
   Serial.println("Begin"); 
   digitalWrite(PIN_ENABLE, LOW); // enable power to motor
 
-  Serial.print("Revolutions: ");
-  Serial.println(RAIL_LENGTH / MM_PER_REV);
-  
-  for (int revs=0; revs<RAIL_LENGTH / MM_PER_REV * REV_STEPS / STEP_MODE; revs++)
+  for (int steps=0; steps<num_steps; steps++)
   {
       digitalWrite(PIN_STEP, HIGH); // Output high
       delay(1);
       digitalWrite(PIN_STEP, LOW); // Output low
       delay(step_delay);
-      steps_track_offset += step_increment;
       if (start_stop_pressed()) {
         digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
         return;
@@ -189,33 +186,49 @@ void continuous(int steps)
   digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
 }
 
-void timelapse() 
+void timelapse(long num_steps, int captures, uint32_t duration) 
 {
-  Serial.println("Begin"); 
+  uint32_t time_per_capture = duration * 1000.0 / captures;
+  int steps_per_capture = num_steps / captures;
 
-  //for (int revs=0; revs<RAIL_LENGTH / MM_PER_REV; revs++)
-  for (int revs=0; revs<1; revs++)
-  {
-    Serial.println("Step for a full revolution");
-    digitalWrite(PIN_ENABLE, LOW); // enable power to motor
-    
-    for (int x=0; x<REV_STEPS / STEP_MODE; x++)
-    {
-      digitalWrite(PIN_STEP, HIGH); // Output high
-      digitalWrite(PIN_STEP, LOW); // Output low
-      delay(step_delay);
-      steps_track_offset++;
-    }
+  Serial.print("duration and captures: ");
+  Serial.println(duration);
+  Serial.println(captures);
+
+  Serial.print("time_per_capture: ");
+  Serial.println(time_per_capture);
   
-    digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
+  Serial.print("steps_per_capture: ");
+  Serial.println(steps_per_capture);
+
+  for (int capture=0; capture<captures; capture++)
+  {
+    startTime = micros(); //TODO watch out for overflow ~70 min since program begin
     
-    // Trigger the shutter in the middle of the wait
-    delay(rev_delay / 2 - 10);
-    digitalWrite(PIN_SHUTTER, HIGH); // Output low
+    digitalWrite(PIN_ENABLE, LOW); // enable power to motor
+    for (int steps=0; steps<steps_per_capture; steps++)
+    {
+      digitalWrite(PIN_STEP, HIGH);
+      delay(1);
+      digitalWrite(PIN_STEP, LOW);
+      delay(10);
+    }
+    digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
+
+    delay(500); //reduce vibration (theory)
+    
+    Serial.print("Begin capture ");
+    Serial.println(capture);
+
+    // Trigger the shutter
+    digitalWrite(PIN_SHUTTER, HIGH);
     delay(10);
-    digitalWrite(PIN_SHUTTER, LOW); // Output low
-    Serial.println("Shutter triggered");
-    delay(rev_delay / 2);
+    digitalWrite(PIN_SHUTTER, LOW);
+
+    Serial.print("Delay: ");
+    Serial.println((time_per_capture - (micros() - startTime)) / 1000.0);
+    
+    delay((time_per_capture - (micros() - startTime)) / 1000.0);
   }
 }
 
