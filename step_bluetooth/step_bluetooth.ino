@@ -29,13 +29,20 @@ struct {
 #define PIN_DIRECTION 4
 #define PIN_STEP_MODE 7
 
-
-#define PIN_SELECT 8
+#define PIN_START 8
 #define PIN_TRACK_MODE 9
-#define PIN_START 2
-#define PIN_SHUTTER 3
+#define PIN_SELECT 11
+#define PIN_SHUTTER 12
 #define PIN_LED 13
 #define BAUD (9600)
+
+//Bluetooth
+#include <SoftwareSerial.h>
+#define RxD 7
+#define TxD 6
+SoftwareSerial BlueToothSerial(RxD,TxD);
+//char bt_flag=1;
+String bt_read_string = "";
 
 //float rev_delay;
 //float step_delay;
@@ -53,9 +60,6 @@ static uint8_t  led;
 uint8_t  speedIdx  = 0;
 uint32_t startTime = 0;      // micros() value when slider movement started
 
-// Function prototypes
-boolean start_stop_pressed(boolean set_pressed = false);
-boolean mode_pressed(boolean set_pressed = false);
 
 void setup() 
 {
@@ -81,6 +85,11 @@ void setup()
 
   steps_per_track = RAIL_LENGTH / MM_PER_REV * REV_STEPS / STEP_MODE * GEAR_RATIO;
 
+  BlueToothSerial.begin(38400); 
+  delay(500);
+  //Test_BlueTooth();  
+  setupBlueTooth();
+  
   digitalWrite(PIN_LED, LOW);       // LED off init complete
 }
 
@@ -95,18 +104,17 @@ void loop()
   {
     track_mode = digitalRead(PIN_TRACK_MODE); //1 for continuous, 0 for timelapse
     
-    Serial.print("Start! mode=");
-    Serial.println(track_mode);
-    
+    Serial.println("Start!");
+    Serial.println(start_stop_pressed());
     if (!track_mode) //timelapse mode selected
     {
-      //rev_delay = 5000;
+      rev_delay = 5000;
       timelapse(steps_per_track, 60, speed[speedIdx].timelapseTime);
     }
   
     if (track_mode) //continuous mode selected
     {
-      continuous(steps_per_track);
+      continuous();
     }
 
     needs_reset = 1;
@@ -131,7 +139,6 @@ void loop()
 // Select the next speed mode
 void toggle_mode()
 {
-  int track_mode = digitalRead(PIN_TRACK_MODE); //1 for continuous, 0 for timelapse
   speedIdx = (speedIdx + 1) % N_SPEEDS;
   Serial.print("Speed selected: ");
   Serial.println(track_mode ? speed[speedIdx].continuousTime : speed[speedIdx].timelapseTime);
@@ -147,7 +154,7 @@ void reverse_direction() {
   digitalWrite(PIN_DIRECTION, direction_mode);
 }
 
-boolean start_stop_pressed(boolean set_pressed)
+boolean start_stop_pressed(boolean set_pressed=false)
 {
   int pressed = !digitalRead(PIN_START) || set_pressed;
 
@@ -163,9 +170,10 @@ boolean start_stop_pressed(boolean set_pressed)
   return 0;
 }
 
-boolean mode_pressed(boolean set_pressed)
+boolean mode_pressed(boolean set_pressed=false)
 {
   int pressed = !digitalRead(PIN_SELECT) || set_pressed;
+
   if (!pressed) {
     button_select_is_pressed = 0;
     return 0;
@@ -176,6 +184,31 @@ boolean mode_pressed(boolean set_pressed)
   }
 
   return 0;
+}
+
+void continuous(long num_steps)
+{
+  ms_for_track = speed[speedIdx].continuousTime;
+  float step_delay = ms_for_track / steps_per_track;
+  Serial.print("Revolutions: ");
+  Serial.println(RAIL_LENGTH / MM_PER_REV);
+  
+  Serial.println("Begin"); 
+  digitalWrite(PIN_ENABLE, LOW); // enable power to motor
+
+  for (int steps=0; steps<steps_per_track; steps++)
+  {
+      digitalWrite(PIN_STEP, HIGH); // Output high
+      delay(1);
+      digitalWrite(PIN_STEP, LOW); // Output low
+      delay(step_delay);
+      if (start_stop_pressed()) {
+        digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
+        return;
+      }
+  }
+
+  digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
 }
 
 void timelapse(long num_steps, int captures, uint32_t duration) 
@@ -207,8 +240,7 @@ void timelapse(long num_steps, int captures, uint32_t duration)
     }
     digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
 
-    //delay(500); //reduce vibration (theory)
-    delay((time_per_capture - (micros() - startTime)) / 1000.0 / 2.0);
+    delay(500); //reduce vibration (theory)
     
     Serial.print("Begin capture ");
     Serial.println(capture);
@@ -225,34 +257,71 @@ void timelapse(long num_steps, int captures, uint32_t duration)
   }
 }
 
-void continuous(long num_steps)
-{
-  ms_for_track = speed[speedIdx].continuousTime;
-  float step_delay = ms_for_track / steps_per_track;
-  Serial.print("Revolutions: ");
-  Serial.println(RAIL_LENGTH / MM_PER_REV);
-  
-  Serial.println("Begin"); 
-  digitalWrite(PIN_ENABLE, LOW); // enable power to motor
-
-  for (int steps=0; steps<steps_per_track; steps++)
-  {
-      digitalWrite(PIN_STEP, HIGH); // Output high
-      delay(1);
-      digitalWrite(PIN_STEP, LOW); // Output low
-      delay(step_delay);
-      if (start_stop_pressed()) {
-        digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
-        return;
-      }
-  }
-
-  digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
-}
-
 void switch_direction() {
   direction_mode = direction_mode == LOW ? HIGH : LOW;
   digitalWrite(PIN_DIRECTION, direction_mode);
 }
+
+
+///// Bluetooth stuffs
+
+void setupBlueTooth()
+{
+  char bt_flag = 1;
+  
+  Serial.println("Bluetooth Initialization ...");      
+  sendBlueToothCommand("AT+NAME=LinkSprite\r\n");
+  sendBlueToothCommand("AT+ROLE=0\r\n");
+  sendBlueToothCommand("AT+CMODE=0\r\n");
+  sendBlueToothCommand("AT+PSWD=1234\r\n");
+  sendBlueToothCommand("AT+UART=38400,0,0\r\n");
+  delay(500);
+  Serial.println("Bluetooth Initialized Successfully !\r\n");
+  do{
+    if(Serial.available())
+    {
+      if( Serial.read() == 'S')
+      {
+        sendBlueToothCommand("AT+RESET\r\n");
+        bt_flag = 0;
+      }
+    }
+  }while(bt_flag);
+}
+
+// Process any pending Bluetooth input
+void process_bluetooth() {
+  
+  if(BlueToothSerial.available())
+  {
+    char c;
+    c = char(BlueToothSerial.read());
+    if (c == '\n') {
+      Serial.print("Received bluetooth cmd: ");
+      Serial.println(bt_read_string);
+      
+      if (bt_read_string == "start" || bt_read_string == "stop") {
+        start_stop_pressed(true);
+      }
+      else if (bt_read_string == "speed") {
+        toggle_mode();
+      }
+      else if (bt_read_string == "video") {
+      }
+      else if (bt_read_string == "timelapse") {
+      }
+      else if (bt_read_string == "reverse") {
+        reverse_direction();
+      }
+      
+      bt_read_string = "";
+    }
+    else {
+      bt_read_string += c;
+    }
+    
+  }
+}
+
 
 
