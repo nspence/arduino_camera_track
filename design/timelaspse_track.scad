@@ -10,8 +10,8 @@ module rail() {
 
 module rails() {
   color([0.3, 0.3, 0.3]);
-  translate([250, rail_distance / 2 * -1, 0]) rail();
-  translate([250, rail_distance / 2, 0]) rail();
+  translate([0, rail_distance / 2 * -1, 0]) rail();
+  translate([0, rail_distance / 2, 0]) rail();
 }
 
 module foot() {
@@ -36,13 +36,18 @@ module bearing() {
 module bearing_mount() {
   difference() {
     union() {
-      translate([-1, 5, 0]) cube([20, 4, 12], true);
-      translate([-1, -5, 0]) cube([20, 4, 12], true);
-      translate([-14, 0, 0]) cube([10, 14, 12], true);
+      translate([-1, 5, -1]) cube([20, 4, 14], true);
+      translate([-1, -5, -1]) cube([20, 4, 14], true);
+      translate([-14, 0, -1]) cube([10, 14, 14], true);
     }
     translate([5.25, 0, 0]) {
       rotate([90, 0, 0]) cylinder(16, d=bearing_bore_diameter, center=true, $fn=24);
     }
+    
+    //screw hole (#8 size)
+    translate([-14, 0, 0])
+      rotate([0, 90, 0])
+        cylinder(14, d=4.17, center=true, $fn=24);
   }
   translate([5.25, 0, 0]) rotate([90, 0, 0]) bearing();
 }
@@ -61,7 +66,10 @@ module sheath() {
         translate([-11.5, 0, -34]) bearing_hole();
       }
       
-      translate([-19, 0, 34]) bearing_mount();
+      translate([-19, 0, 34])
+        rotate([180, 0, 0])
+          bearing_mount();
+
       translate([-19, 0, -34]) bearing_mount();
     }
   }
@@ -158,17 +166,27 @@ module electronics() {
 }
 
 module nema11_mount() {
-  difference() {
-    cube([32, 32, 6], center=true);
-    cylinder(8, d=23, center=true, $fn=48);
-    translate([23.0/2, 23.0/2, 0])
-      cylinder(8, d=2, center=true, $fn=24);
-    translate([-23.0/2, 23.0/2, 0])
-      cylinder(8, d=2, center=true, $fn=24);
-    translate([23.0/2, -23.0/2, 0])
-      cylinder(8, d=2, center=true, $fn=24);
-    translate([-23.0/2, -23.0/2, 0])
-      cylinder(8, d=2, center=true, $fn=24);
+  union() {
+    difference() {
+      cube([32, 32, 6], center=true);
+      translate([0, 0, -2])
+        cylinder(6, d=23, center=true, $fn=48);
+      cylinder(8, d=7, center=true, $fn=48);
+      translate([23.0/2, 23.0/2, 0])
+        cylinder(8, d=2, center=true, $fn=24);
+      translate([-23.0/2, 23.0/2, 0])
+        cylinder(8, d=2, center=true, $fn=24);
+      translate([23.0/2, -23.0/2, 0])
+        cylinder(8, d=2, center=true, $fn=24);
+      translate([-23.0/2, -23.0/2, 0])
+        cylinder(8, d=2, center=true, $fn=24);
+      
+      //shaft slot
+      translate([-10, 0, 0])
+        cube([16, 5, 8], center=true);
+    }
+    translate([0, 17, -13])
+      cube([32, 5, 32], center=true);
   }
 }
 
@@ -211,7 +229,15 @@ module car_floor() {
           cube([20, 8, 19], center=true);
           rotate([90, 0, 0])
             cylinder(10, d=4, center=true, $fn=24);
-        } 
+          translate([0, 0, 5])
+            cube([20+1, 8+1, 9.5+.5], center=true);
+        }
+        difference() {
+          translate([0, 0, 4.75])
+            cube([20, 8, 9.5], center=true);
+          rotate([90, 0, 0])
+            cylinder(10, d=4, center=true, $fn=24);
+        }
       }
       
       //motor bed
@@ -255,7 +281,7 @@ module car_front_wall() {
 module car_roof() {
   difference() {
     color([1, .9, .2])
-      #cube([92 + 8, rail_distance + 22, 26], center=true);
+      cube([92 + 8, rail_distance + 22, 26], center=true);
     translate([0, 0, -4])
       cube([92, rail_distance + 14, 26], center=true);
     
@@ -278,22 +304,36 @@ module car() {
     car_back_wall();
   *translate([41, 0, 17])
     car_front_wall();
-  translate([-3, 0, 29])
-    car_roof();
   
-  //modeled components
-  translate([-24, 6, 14])
-    motor_and_gears();
-  translate([-45, -10.2 ,-4])
-    rotate([90, 0, 0])
-      electronics();
+  
+  
   
 }
+module rail_connectors() {
+  cylinder(70, d=18);
+  translate([20, 0, 0]) {
+    cylinder(70, d=18);
+  }
+}
+
+// modeled components (do not print)
+*translate([-24, 6, 14])
+  motor_and_gears();
+*translate([-45, -10.2 ,-4])
+  rotate([90, 0, 0])
+    electronics();
+
+*rails();
+
+// individual printed components
+translate([0, 0, 0]) car();
+//translate([-3, 0, 29]) //installed view
+*translate([100, 0, 0]) rotate([180, 0, 0]) //print view
+  car_roof();
+
+*translate([0, 60, 0]) rail_connectors();
 
 *translate([12, 0, 0]) foot();
 *translate([512, 0, 0]) {
   mirror([1, 0, 0]) foot();
 }
-
-*rails();
-translate([250, 0, 0]) car();

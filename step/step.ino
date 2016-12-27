@@ -7,18 +7,6 @@
  #include <LiquidCrystal.h>
  LiquidCrystal lcd(7,8,9,10,11,12);
 
-struct {
-  uint32_t timelapseTime;  // Total duration of movement along slider for timelapse mode
-  uint32_t continuousTime; // Total duration of movement along slider for continuous mode
-  uint32_t LEDflashTime;   // LED blink rate indicates selected speed
-} speed[] = {
-   5 * 60 * 1000.0, 3000.0,  1000000L / 2, //  5 min tl, 3s c,   2 Hz blink
-  10 * 60 * 1000.0, 6000.0,  1000000L,     // 10 min tl, 6s c,   1 Hz blink
-  20 * 60 * 1000.0, 10000.0, 1000000L * 2, // 20 min tl, 10s c,  1/2 Hz blink
-  60 * 60 * 1000.0, 15000.0, 1000000L * 3  // 60 min tl, 15s c,  1/3 Hz blink
-};
-#define N_SPEEDS (sizeof(speed) / sizeof(speed[0]))
-
 #define REV_STEPS 200.0
 #define STEP_MODE 0.5 //.5 for half, 1 for full
 #define RAIL_LENGTH 337.0 //mm
@@ -92,8 +80,6 @@ void setup()
 
   steps_per_track = RAIL_LENGTH / MM_PER_REV * REV_STEPS / STEP_MODE * GEAR_RATIO;
 
-  digitalWrite(PIN_LED, LOW);       // LED off init complete
-
   lcd.begin(16,2);
   lcd.clear();
 }
@@ -106,6 +92,8 @@ void loop()
     menu();
     return;
   }
+
+  digitalWrite(PIN_LED, LOW);       // LED off init complete
 
   //set direction
   digitalWrite(PIN_DIRECTION, direction_mode);
