@@ -3,21 +3,32 @@ rail_distance = 72;
 bearing_radius = 8;
 bearing_bore_diameter = 3.1;
 
-module rail() {
+module rail(tolerance=0) {
   color([0.3, 0.3, 0.3])
-  rotate([0, 90, 0]) cylinder(500, rail_radius, rail_radius, true);
+  rotate([0, 90, 0]) cylinder(500, r=rail_radius + tolerance, center=true);
 }
 
-module rails() {
+module rails(tolerance=0) {
   color([0.3, 0.3, 0.3]);
   translate([0, rail_distance / 2 * -1, 0]) rail();
   translate([0, rail_distance / 2, 0]) rail();
 }
 
 module foot() {
-  difference() {
-    cube([45, 80, 26], true);
-    rails();
+  union() {
+    difference() {
+      cube([45, rail_distance + 40, 26], true);
+      translate([-235, 0, 0])
+        rails(0.2);
+      //tripod screw (1/4" - 20)
+      cylinder(40, d=6.35, center=true, $fn=48);
+    }
+    translate([0, (rail_distance + 75) / 2, -31])
+      rotate([-45, 0, 0])
+        cube([45, 65, 12], true);
+    translate([0, (rail_distance + 75) / -2, -31])
+      rotate([45, 0, 0])
+        cube([45, 65, 12], true);
   }
 }
 
@@ -424,7 +435,7 @@ module rail_connectors() {
 // modeled components (do not print)
 *translate([-24, 6, 14])
   motor_and_gears();
-translate([-45, -10.3 ,-4])
+*translate([-45, -10.3 ,-4])
   rotate([90, 0, 0])
     electronics();
 
@@ -432,8 +443,8 @@ translate([-45, -10.3 ,-4])
 
 // individual printed components
 translate([0, 0, 0]) car();
-translate([-3, 0, 29]) //installed view
-//translate([100, 0, 0]) rotate([180, 0, 0]) //print view
+//translate([-3, 0, 29]) //installed view
+translate([100, 0, 0]) rotate([180, 0, 0]) //print view
   car_roof();
 
 translate([-25, 60, 0]) gear_mount_half(true);
@@ -441,7 +452,7 @@ translate([-25, 75, 0]) roller_mount_bottom();
 
 translate([0, 60, 0]) rail_connectors();
 
-translate([-100, 0, 0]) foot();
-*translate([512, 0, 0]) {
+translate([-80, 0, 0]) foot();
+translate([-130, 0, 0]) {
   mirror([1, 0, 0]) foot();
 }
