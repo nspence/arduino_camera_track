@@ -65,9 +65,6 @@ module bearing_mount() {
   //translate([bearing_height, 0, 0]) rotate([90, 0, 0]) bearing();
 }
 
-module sheath_hole() {
-  cylinder(100, r=rail_radius + 1, center=true, $fn=50);
-}
 
 module sheath() {
   rotate([0, 90, 0]) {
@@ -87,6 +84,30 @@ module sheath() {
     }
   }
 }
+
+module sheath_hole(pad_for_sheath=false) {
+  cylinder(100, r=rail_radius + 1, center=true, $fn=50);
+}
+
+module sheath_holes(include_sheath=false) {
+  translate([0, rail_distance / 2, 0]) {
+    rotate([0, 90, 0]) 
+      sheath_hole(include_sheath);
+    if (include_sheath) {
+      sheath();
+    }
+  }
+  translate([0, rail_distance / 2 * -1, 0]) {
+    rotate([0, 90, 0])
+      sheath_hole(include_sheath);
+    if (include_sheath) {
+      sheath();
+    }
+  }
+  
+}
+
+
 
 module worm_gear() {
   color([1, .8, .5])
@@ -179,39 +200,53 @@ module electronics() {
 }
 
 module nema11_mount() {
-  union() {
-    difference() {
-      cube([32, 32, 6], center=true);
-      translate([0, 0, -2])
-        cylinder(6, d=23, center=true, $fn=48);
-      cylinder(8, d=7, center=true, $fn=48);
-      translate([23.0/2, 23.0/2, 0])
-        cylinder(8, d=2, center=true, $fn=24);
-      translate([-23.0/2, 23.0/2, 0])
-        cylinder(8, d=2, center=true, $fn=24);
-      translate([23.0/2, -23.0/2, 0])
-        cylinder(8, d=2, center=true, $fn=24);
-      translate([-23.0/2, -23.0/2, 0])
-        cylinder(8, d=2, center=true, $fn=24);
+  difference() {
+    union() {
+      difference() {
+        cube([32, 32, 6], center=true);
+        translate([0, 0, -2])
+          cylinder(6, d=23, center=true, $fn=48);
+        cylinder(8, d=7, center=true, $fn=48);
+        translate([23.0/2, 23.0/2, 0])
+          cylinder(8, d=2, center=true, $fn=24);
+        translate([-23.0/2, 23.0/2, 0])
+          cylinder(8, d=2, center=true, $fn=24);
+        translate([23.0/2, -23.0/2, 0])
+          cylinder(8, d=2, center=true, $fn=24);
+        translate([-23.0/2, -23.0/2, 0])
+          cylinder(8, d=2, center=true, $fn=24);
+        
+        //shaft slot
+        translate([-10, 0, 0])
+          cube([16, 5, 8], center=true);
+        
+        
+      }
+      translate([0, 17, -13])
+        cube([32, 5, 32], center=true);
       
-      //shaft slot
-      translate([-10, 0, 0])
-        cube([16, 5, 8], center=true);
+      //motor bed
+      translate([16.3, 0, -15.75])
+        rotate([0,90, 0])
+          cube([31.5 + 6, 32, 4], center=true);
     }
-    translate([0, 17, -13])
-      cube([32, 5, 32], center=true);
+    //sheath spot
+    translate([14, rail_distance / 2 - 6, 2.25]) {
+      rotate([0, -90, 0])
+        sheath();
+      translate([0, -1])
+        sheath_hole();
+    }
+    
+    //screw head spot in bed
+    translate([12, 0, -18])
+      rotate([0, 90, 0])
+        cylinder(8, d=5, center=true, $fn=24);
   }
 }
 
 
-module sheath_holes() {
-  translate([0, rail_distance / 2, 0])
-    rotate([0, 90, 0]) 
-      sheath_hole();
-  translate([0, rail_distance / 2 * -1, 0])
-    rotate([0, 90, 0])
-      sheath_hole();
-}
+
 
 
 module gear_mount_half(trim=false) {
@@ -257,6 +292,8 @@ module roller_mount_bottom() {
   }
 }
 
+
+
 module car_floor() {
   difference() {
     union() {
@@ -292,14 +329,16 @@ module car_floor() {
         
       }
       
-      //motor bed
+      // assembled view only
+      /*translate([-5.2, 6, 14])
+        rotate([0, 90, 0])
+          nema11_mount();*/
+    }
+    
+    //inset for motor bed
       translate([-24 + 3, 6, -2.3])
         cube([31.5 + 6, 32, 4], center=true);
       
-      translate([-5.2, 6, 14])
-        rotate([0, 90, 0])
-          nema11_mount();
-    }
     
     //inset for roller shaft access
     translate([25.5, 7, -7.5])
@@ -326,8 +365,9 @@ module car_back_wall() {
   difference() {
     color([1, .6, .2])
       cube([4, rail_distance + 14, 42], center=true);
-    translate([0, 0, -17])
-      sheath_holes();
+    translate([0, 0, -17]) {
+      sheath_holes(true);
+    }
   }
 }
 
@@ -419,7 +459,7 @@ module car_roof() {
 module car() {
   //printable stuff
   car_floor();
-  translate([-47, 0, 17])
+  *translate([-47, 0, 17])
     car_back_wall();
   translate([41, 0, 17])
     car_front_wall();
@@ -442,17 +482,29 @@ module rail_connectors() {
 *rails();
 
 // individual printed components
-translate([0, 0, 0]) car();
+translate([-5, 0, 29])
+  rotate([180, 90, 90])
+    car();
 //translate([-3, 0, 29]) //installed view
-translate([100, 0, 0]) rotate([180, 0, 0]) //print view
+translate([100, 0, -1]) rotate([180, 0, 0]) //print view
   car_roof();
 
-translate([-25, 60, 0]) gear_mount_half(true);
-translate([-25, 75, 0]) roller_mount_bottom();
+translate([0, -70, -12])
+  rotate([90, 90, 0])
+    car_back_wall();
 
-translate([0, 60, 0]) rail_connectors();
+translate([-25, 65, 0]) gear_mount_half(true);
+translate([-25, 80, 0]) roller_mount_bottom();
+translate([-25, 40, 0])
+  rotate([180, 0, 0])
+    nema11_mount();
 
-translate([-80, 0, 0]) foot();
-translate([-130, 0, 0]) {
-  mirror([1, 0, 0]) foot();
-}
+translate([5, 60, 0])
+    rail_connectors();
+
+translate([-80, 0, 8]) 
+  rotate([0, 90, 0])
+    foot();
+translate([-130, 0, 8])
+  rotate([0, 90, 0])
+    foot();
