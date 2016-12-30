@@ -1,7 +1,7 @@
-rail_radius = 9;
-rail_distance = 70;
+rail_radius = 10.1;
+rail_distance = 72;
 bearing_radius = 8;
-bearing_bore_diameter = 3;
+bearing_bore_diameter = 3.1;
 
 module rail() {
   color([0.3, 0.3, 0.3])
@@ -22,7 +22,7 @@ module foot() {
 }
 
 module bearing_hole() {
-  cube([5, 6, 14], true);
+  cube([7, 6, 14], true);
 }
 
 module bearing() {
@@ -34,13 +34,15 @@ module bearing() {
 }
 
 module bearing_mount() {
+  bearing_height = 4;
+  
   difference() {
     union() {
       translate([-1, 5, -1]) cube([20, 4, 14], true);
       translate([-1, -5, -1]) cube([20, 4, 14], true);
       translate([-14, 0, -1]) cube([10, 14, 14], true);
     }
-    translate([5.25, 0, 0]) {
+    translate([bearing_height, 0, 0]) {
       rotate([90, 0, 0]) cylinder(16, d=bearing_bore_diameter, center=true, $fn=24);
     }
     
@@ -49,18 +51,18 @@ module bearing_mount() {
       rotate([0, 90, 0])
         cylinder(14, d=4.17, center=true, $fn=24);
   }
-  translate([5.25, 0, 0]) rotate([90, 0, 0]) bearing();
+  //translate([bearing_height, 0, 0]) rotate([90, 0, 0]) bearing();
 }
 
 module sheath_hole() {
-  cylinder(100, r=rail_radius + 0.5, center=true, $fn=50);
+  cylinder(100, r=rail_radius + 1, center=true, $fn=50);
 }
 
 module sheath() {
   rotate([0, 90, 0]) {
     union() {
       difference() {
-        cylinder(92, r=rail_radius + 3.5, center=true, $fn=50);
+        cylinder(92, r=rail_radius + 4, center=true, $fn=50);
         sheath_hole();
         translate([-11.5, 0, 34]) bearing_hole();
         translate([-11.5, 0, -34]) bearing_hole();
@@ -200,6 +202,50 @@ module sheath_holes() {
       sheath_hole();
 }
 
+
+module gear_mount_half(trim=false) {
+  difference() {
+    translate([0, -0.5, 0])
+      cube([20, 7.5, 9.5], center=true);
+    translate([0, 0, 4.75])
+      rotate([90, 0, 0])
+        cylinder(10, d=4.1, center=true, $fn=24);
+    
+    //screw holes for #4 machine screws
+    translate([-6, 0, 0])
+      cylinder(10, d=2.5, center=true, $fn=24);
+    translate([6, 0, 0])
+      cylinder(10, d=2.5, center=true, $fn=24);
+    
+    if (trim) {
+      translate([0, 7.5, 7])
+        cube([22, 10, 10], center=true);
+    }
+  }
+}
+
+module holes_for_roller_mound() {
+  rotate([90, 0, 0]) {
+    cylinder(24, d=3.1, center=true, $fn=24);
+    translate([17, 0, 0])
+      cylinder(24, d=3.1, center=true, $fn=24);
+  }
+  
+  //screw holes for #4 machine screws
+  translate([8.5, 4, -2])
+    cylinder(12, d=2.5, center=true, $fn=24);
+  translate([8.5, 12, -2])
+    cylinder(12, d=2.5, center=true, $fn=24);
+}
+
+module roller_mount_bottom() {
+  difference() {
+    cube([25, 13, 5], center=true);
+    translate([-8.5, -8, 2.5])
+      holes_for_roller_mound();
+  }
+}
+
 module car_floor() {
   difference() {
     union() {
@@ -213,35 +259,30 @@ module car_floor() {
       //mounds for timing belt roller shafts
       translate([25.5, -11.5, -6])
         cube([26, 4, 6], center=true);
-      translate([25.5, 2.5, -6])
-        cube([26, 4, 6], center=true);
+      translate([25.5, 7.5, -4.5])
+        cube([26, 14, 3], center=true);
       
       //gear and pulley mounts
       translate([26, -21, 5.4]) {
         difference() {
           cube([20, 8, 19], center=true);
           rotate([90, 0, 0])
-            cylinder(10, d=5, center=true, $fn=24);
+            cylinder(10, d=5.1, center=true, $fn=24);
         }
       }
       translate([26, 21, 5.4]) {
-        difference() {
-          cube([20, 8, 19], center=true);
-          rotate([90, 0, 0])
-            cylinder(10, d=4, center=true, $fn=24);
-          translate([0, 0, 5])
-            cube([20+1, 8+1, 9.5+.5], center=true);
-        }
-        difference() {
-          translate([0, 0, 4.75])
-            cube([20, 8, 9.5], center=true);
-          rotate([90, 0, 0])
-            cylinder(10, d=4, center=true, $fn=24);
-        }
+        translate([0, 0, -4.75])
+          gear_mount_half();
+        
+        // assembled view only
+        /*translate([0, 0, 4.75])
+          rotate([0, 180, 0])
+            gear_mount_half(true);*/
+        
       }
       
       //motor bed
-      translate([-24 + 3, 6, -2.0])
+      translate([-24 + 3, 6, -2.3])
         cube([31.5 + 6, 32, 4], center=true);
       
       translate([-5.2, 6, 14])
@@ -249,12 +290,25 @@ module car_floor() {
           nema11_mount();
     }
     
+    //inset for roller shaft access
+    translate([25.5, 7, -7.5])
+      cube([26, 14, 3], center=true);
+    
+    //holes for roller shafts
+    translate([17, -1, -6])
+      holes_for_roller_mound();
+    
+    
     sheath_holes();
       
     //timing belt hole
     translate([25.5, -4.5, -6])
       cube([26, 10, 6], center=true);
   }
+  
+  // assembled view only
+    //translate([25.5, 7, -8.5])
+      //roller_mount_bottom();
 }
 
 module car_back_wall() {
@@ -279,47 +333,98 @@ module car_front_wall() {
 }
 
 module car_roof() {
-  difference() {
-    color([1, .9, .2])
-      cube([92 + 8, rail_distance + 22, 26], center=true);
-    translate([0, 0, -4])
-      cube([92, rail_distance + 14, 26], center=true);
+  union() {
+    difference() {
+      color([1, .9, .2]) {
+        union() {
+          cube([92 + 9, rail_distance + 23, 26], center=true);
+          
+        }
+      }
+      translate([0, 0, -4])
+        cube([93, rail_distance + 15, 26], center=true);
+      
+      //tripod screw nut spot
+      translate([0, 0, 12])
+        cylinder(6, d=12, center=true, $fn=48);
+      
+      //battery strap slot
+      translate([0, rail_distance / -2 - 6, 11])
+        cube([25, 2.5, 6], center=true);
+      
+      //wire hole for display
+      translate([0, rail_distance / 2 + 6, 11])
+        cube([25, 2.5, 6], center=true);
+      
+      //spare slots
+      translate([40.75, 0, 11])
+        cube([2.5, 20, 6], center=true);
+      translate([-40.75, 0, 11])
+        cube([2.5, 20, 6], center=true);
+      
+      //usb hole
+      translate([13, rail_distance / -2 + 5, 11])
+        cylinder(6, d=13, center=true, $fn=48);
     
-    //screw holes (#8 size)
-    translate([34, 35, 10])
-      cylinder(8, d=4.17, center=true, $fn=24);
-    translate([34, -35, 10])
-      cylinder(8, d=4.17, center=true, $fn=24);
-    translate([-34, 35, 10])
-      cylinder(8, d=4.17, center=true, $fn=24);
-    translate([-34, -35, 10])
-      cylinder(8, d=4.17, center=true, $fn=24);
+      //button slots
+      translate([-20, rail_distance / -2 + 5, 12])
+        cube([12, 13, 3], center=true);
+      translate([-4, rail_distance / -2 + 5, 12])
+        cube([12, 13, 3], center=true);
+      translate([-20, rail_distance / -2 - 0.75, 12])
+        cube([6, 1.5, 8], center=true);
+      translate([-20, rail_distance / -2 + 10.75, 12])
+        cube([6, 1.5, 8], center=true);
+        translate([-4, rail_distance / -2 - 0.75, 12])
+        cube([6, 1.5, 8], center=true);
+      translate([-4, rail_distance / -2 + 10.75, 12])
+        cube([6, 1.5, 8], center=true);
+        
+      //tripod screw (1/4" - 20)
+      cylinder(40, d=6.35, center=true, $fn=48);
+      
+      //screw holes (#8 size) top
+      translate([34, rail_distance / 2, 10])
+        cylinder(8, d=4.17, center=true, $fn=24);
+      translate([34, rail_distance / -2, 10])
+        cylinder(8, d=4.17, center=true, $fn=24);
+      translate([-34, rail_distance / 2, 10])
+        cylinder(8, d=4.17, center=true, $fn=24);
+      translate([-34, rail_distance / -2, 10])
+        cylinder(8, d=4.17, center=true, $fn=24);
+        
+      
+      
+    }
+    difference() {
+      //tripod head mount
+      translate([0, 4.3, 8])
+        cube([35, 29, 6], center=true);
+      cylinder(40, d=6.35, center=true, $fn=48);
+    }
   }
 }
 
 module car() {
   //printable stuff
   car_floor();
-  *translate([-47, 0, 17])
+  translate([-47, 0, 17])
     car_back_wall();
-  *translate([41, 0, 17])
+  translate([41, 0, 17])
     car_front_wall();
-  
-  
-  
-  
 }
+
 module rail_connectors() {
-  cylinder(70, d=18);
+  cylinder(70, d=17.8);
   translate([20, 0, 0]) {
-    cylinder(70, d=18);
+    cylinder(70, d=17.8);
   }
 }
 
 // modeled components (do not print)
 *translate([-24, 6, 14])
   motor_and_gears();
-*translate([-45, -10.2 ,-4])
+translate([-45, -10.3 ,-4])
   rotate([90, 0, 0])
     electronics();
 
@@ -327,13 +432,16 @@ module rail_connectors() {
 
 // individual printed components
 translate([0, 0, 0]) car();
-//translate([-3, 0, 29]) //installed view
-*translate([100, 0, 0]) rotate([180, 0, 0]) //print view
+translate([-3, 0, 29]) //installed view
+//translate([100, 0, 0]) rotate([180, 0, 0]) //print view
   car_roof();
 
-*translate([0, 60, 0]) rail_connectors();
+translate([-25, 60, 0]) gear_mount_half(true);
+translate([-25, 75, 0]) roller_mount_bottom();
 
-*translate([12, 0, 0]) foot();
+translate([0, 60, 0]) rail_connectors();
+
+translate([-100, 0, 0]) foot();
 *translate([512, 0, 0]) {
   mirror([1, 0, 0]) foot();
 }
