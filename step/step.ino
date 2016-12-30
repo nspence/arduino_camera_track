@@ -46,6 +46,7 @@ uint32_t startTime = 0;      // micros() value when slider movement started
 int mode = 0;
 int captures = 200;
 int duration = 60;
+int interval = 2;
 int shutter_time = 0;
 
 // Function prototypes
@@ -165,17 +166,17 @@ void menu()
       else if (button_pressed(PIN_START)) {
         menu_step = 3;
         lcd.clear();
-        lcd.print("Duration (min)?");
+        lcd.print("Interval (s)?");
         lcd.setCursor(0,1);
-        lcd.print(duration);
+        lcd.print(interval);
       }
       break;
     case 3:
       if (button_pressed(PIN_SELECT))
       {
-        duration = (duration + 10) % 300;
+        interval = (interval + 1) % 10;
         lcd.setCursor(0,1);
-        lcd.print(duration);
+        lcd.print(interval);
         lcd.print("   ");
       }
       else if (button_pressed(PIN_START)) {
@@ -288,7 +289,9 @@ boolean button_pressed(int pin, boolean set_pressed)
 
 void timelapse()
 {
-  unsigned long time_per_capture = (unsigned long)duration * 60UL * 1000UL * 1000UL / (unsigned long)captures;
+  //unsigned long time_per_capture = (unsigned long)duration * 60UL * 1000UL * 1000UL / (unsigned long)captures;
+  unsigned long time_per_capture = (unsigned long)interval * 1000UL * 1000UL;
+  duration = interval * captures;
   
   int steps_per_capture = steps_per_track / captures;
   unsigned long capture_ms = shutter_time * 1000UL;
@@ -298,9 +301,10 @@ void timelapse()
     capture_ms = 10UL;
   }
 
-  Serial.print("duration and captures: ");
+  Serial.print("duration / captures / interval: ");
   Serial.println(duration);
   Serial.println(captures);
+  Serial.println(interval);
 
   Serial.print("time_per_capture: ");
   Serial.println(time_per_capture);
@@ -323,7 +327,7 @@ void timelapse()
     delay(capture_ms);
     digitalWrite(PIN_SHUTTER, LOW);
 
-    delay_ms = ((time_per_capture - (micros() - startTime)) / 1000.0 - steps_per_capture * 11) / 2.0;
+    delay_ms = max(((time_per_capture - (micros() - startTime)) / 1000.0 - steps_per_capture * 6) / 2.0, 0);
     Serial.print("Delay: ");
     Serial.println(delay_ms);
     delay(delay_ms);
@@ -334,12 +338,12 @@ void timelapse()
       digitalWrite(PIN_STEP, HIGH);
       delay(1);
       digitalWrite(PIN_STEP, LOW);
-      delay(10);
+      delay(5);
     }
     digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
 
     //delay(500); //reduce vibration (theory)
-    delay_ms = (time_per_capture - (micros() - startTime)) / 1000.0;
+    delay_ms = max((time_per_capture - (micros() - startTime)) / 1000.0, 0);
     Serial.print("Delay 2: ");
     Serial.print("         ");
     Serial.print(time_per_capture);
