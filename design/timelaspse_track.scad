@@ -44,7 +44,7 @@ module bearing() {
   }
 }
 
-module bearing_mount() {
+module bearing_mount(supports=false) {
   bearing_height = 4;
   
   difference() {
@@ -52,6 +52,14 @@ module bearing_mount() {
       translate([-1, 5, -1]) cube([20, 4, 14], true);
       translate([-1, -5, -1]) cube([20, 4, 14], true);
       translate([-14, 0, -1]) cube([10, 14, 14], true);
+      if (supports) {
+        translate([0, -5, 12])
+          rotate([0, -45, 0])
+            cube([36, 4, 18], true);
+        translate([0, 5, 12])
+          rotate([0, -45, 0])
+            cube([36, 4, 18], true);
+      }
     }
     translate([bearing_height, 0, 0]) {
       rotate([90, 0, 0]) cylinder(16, d=bearing_bore_diameter, center=true, $fn=24);
@@ -80,7 +88,7 @@ module sheath() {
         rotate([180, 0, 0])
           bearing_mount();
 
-      translate([-19, 0, -34]) bearing_mount();
+      translate([-19, 0, -34]) bearing_mount(true);
     }
   }
 }
