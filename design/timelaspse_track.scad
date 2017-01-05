@@ -21,7 +21,21 @@ module foot() {
       translate([-235, 0, 0])
         rails(0.2);
       //tripod screw (1/4" - 20)
-      cylinder(40, d=6.35, center=true, $fn=48);
+      translate([-2, -3, 0])
+        cylinder(40, d=6.35, center=true, $fn=48);
+      
+      //timing belt hole
+      translate([0, 4.5, -8])
+        rotate([0, 90, 0])
+          cube([3, 8, 50], center=true);
+      
+      //screw hole for holding timing belt
+      translate([13, -2, -3])
+        rotate([0, 90, 0])
+          cylinder(20, d=4.17, center=true, $fn=24);
+      translate([13, 11, -3])
+        rotate([0, 90, 0])
+          cylinder(20, d=4.17, center=true, $fn=24);
     }
     translate([0, (rail_distance + 75) / 2, -31])
       rotate([-45, 0, 0])
@@ -511,8 +525,9 @@ translate([5, 60, 0])
     rail_connectors();
 
 translate([-80, 0, 8]) 
-  rotate([0, 90, 0])
-    foot();
+  rotate([0, 270, 180])
+    mirror([1, 0, 0])
+      foot();
 translate([-130, 0, 8])
   rotate([0, 90, 0])
     foot();
