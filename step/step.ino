@@ -4,14 +4,18 @@
  *
  *
  */
- #include <LiquidCrystal.h>
- LiquidCrystal lcd(7,8,9,10,11,12);
+#include <Wire.h>
+#include "SSD1306Ascii.h"
+#include "SSD1306AsciiWire.h"
+
+// for oled display
+#define I2C_ADDRESS 0x3C
 
 #define REV_STEPS 200.0
 #define STEP_MODE 0.5 //.5 for half, 1 for full
 #define RAIL_LENGTH 337.0 //mm
 #define MM_PER_REV 39.0 //mm
-#define GEAR_RATIO 20.0 //step down ratio of gearing (1:GEAR_RATIO)
+#define GEAR_RATIO 21.5 //step down ratio of gearing (1:GEAR_RATIO)
 
 //Motor pins
 #define PIN_ENABLE 6
@@ -27,6 +31,8 @@
 #define PIN_LED 13
 #define BAUD (9600)
 
+SSD1306AsciiWire oled;
+
 //float rev_delay;
 //float step_delay;
 float ms_for_track;
@@ -37,16 +43,13 @@ int direction_mode = LOW;
 // button debouncing - records state
 boolean debouncer[] = { false, false };
 
-
 // Speed selection variables
-static uint8_t  led;
-uint8_t  speedIdx  = 0;
 uint32_t startTime = 0;      // micros() value when slider movement started
 
 int mode = 0;
 int captures = 200;
 int duration = 60;
-int interval = 2;
+int interval = 5;
 int shutter_time = 0;
 
 // Function prototypes
@@ -81,8 +84,10 @@ void setup()
 
   steps_per_track = RAIL_LENGTH / MM_PER_REV * REV_STEPS / STEP_MODE * GEAR_RATIO;
 
-  lcd.begin(16,2);
-  lcd.clear();
+  Wire.begin();
+  oled.begin(&Adafruit128x64, I2C_ADDRESS);
+  oled.set400kHz();
+  oled.setFont(Adafruit5x7);
 }
 
 int menu_step = -1;
@@ -121,28 +126,23 @@ void menu()
   switch(menu_step)
   {
     case -1:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("TemporalLapse v1");
-      lcd.setCursor(0,1);
-      lcd.print("Mode? timelapse");
+      display_title("TemporalLapse v1\nMode?");
+      display_setting("timelapse");
       menu_step = 0;
     case 0:
       if (button_pressed(PIN_SELECT))
       {
-        lcd.setCursor(0,1);
-        lcd.print("Mode? ");
         if (mode == 0) {
           mode = 1;
-          lcd.print("continuous");
+          display_setting("continuous");
         }
         else if (mode == 1) {
           mode = 2;
-          lcd.print("move L/R  ");
+          display_setting("move L/R");
         }
         else {
           mode = 0;
-          lcd.print("timelapse ");
+          display_setting("timelapse");
         }
       }
       else if (button_pressed(PIN_START)) {
@@ -150,54 +150,39 @@ void menu()
       }
       break;
     case 1: //timelapse mode
-      lcd.clear();
-      lcd.print("Num Captures?");
-      lcd.setCursor(0,1);
-      lcd.print(captures);
+      display_title("Num Captures?");
+      display_setting(captures);
       menu_step = 2;
     case 2:
       if (button_pressed(PIN_SELECT))
       {
         captures = (captures + 25) % 1000;
-        lcd.setCursor(0,1);
-        lcd.print(captures);
-        lcd.print("   ");
+        display_setting(captures);
       }
       else if (button_pressed(PIN_START)) {
         menu_step = 3;
-        lcd.clear();
-        lcd.print("Interval (s)?");
-        lcd.setCursor(0,1);
-        lcd.print(interval);
+        display_title("Interval (s)?");
+        display_setting(interval);
       }
+      
       break;
     case 3:
       if (button_pressed(PIN_SELECT))
       {
         interval = (interval + 1) % 10;
-        lcd.setCursor(0,1);
-        lcd.print(interval);
-        lcd.print("   ");
+        display_setting(interval);
       }
       else if (button_pressed(PIN_START)) {
         menu_step = 4;
-        lcd.clear();
-        lcd.print("Shutter (sec)?");
-        lcd.setCursor(0,1);
-        lcd.print(shutter_time);
-        if (!shutter_time)
-          lcd.print(" (camera def)");
+        display_title("Shutter (sec)?\n  (0 for camera def)");
+        display_setting(shutter_time);
       }
       break;
     case 4:
       if (button_pressed(PIN_SELECT))
       {
         shutter_time = (shutter_time + 1) % 30;
-        lcd.setCursor(0,1);
-        lcd.print(shutter_time);
-        if (!shutter_time)
-          lcd.print(" (camera def)");
-        lcd.print("              ");
+        display_setting(shutter_time);
       }
       else if (button_pressed(PIN_START)) {
         menu_step = 201;
@@ -205,19 +190,15 @@ void menu()
       break;
 
     case 101: //continuous mode
-      lcd.clear();
-      lcd.print("Duration (sec)?");
-      lcd.setCursor(0,1);
+      display_title("Duration (sec)?");
       duration = 10;
-      lcd.print(duration);
+      display_setting(duration);
       menu_step = 102;
     case 102:
       if (button_pressed(PIN_SELECT))
       {
         duration = (duration + 2) % 100;
-        lcd.setCursor(0,1);
-        lcd.print(duration);
-        lcd.print("   ");
+        display_setting(duration);
       }
       else if (button_pressed(PIN_START)) {
         menu_step = 201;
@@ -225,26 +206,22 @@ void menu()
       break;
 
     case 201: //move left/right
-      lcd.clear();
-      lcd.print("Direction?");
-      lcd.setCursor(0,1);
-      lcd.print("forward");
+      display_title("Direction?");
+      display_setting("forward");
       menu_step = 202;
     case 202:
       if (button_pressed(PIN_SELECT))
       {
-        lcd.setCursor(0,1);
         if (direction_mode == LOW)
         {
           direction_mode = HIGH;
-          lcd.print("reverse");
+          display_setting("reverse");
         }
         else
         {
           direction_mode = LOW;
-          lcd.print("forward");
+          display_setting("forward");
         }
-        lcd.print(" ");
       }
       else if (button_pressed(PIN_START)) {
         menu_step = 1335;
@@ -253,23 +230,43 @@ void menu()
 
     case 1335:
       menu_step = 1336;
-      lcd.clear();
-      lcd.print("Start?");
+      display_title("Start?");
     case 1336:
       if (button_pressed(PIN_SELECT))
       {
         menu_step = -1;
-        lcd.clear();
       }
-      else if (button_pressed(PIN_START)) {
+      else if (button_pressed(PIN_START))
+      {
         menu_step = 1337;
-        lcd.clear();
-        lcd.print("Running...");
+        display_title("Running...");
       }
       break;
   }
 }
 
+void display_title(char title[])
+{
+  oled.clear();
+  oled.set1X();
+  oled.println(title);
+}
+
+void display_setting(int setting)
+{
+  oled.clear(0, 128, 2, 8);
+  oled.setCursor(0, 2);
+  oled.set2X();
+  oled.println(setting);
+}
+
+void display_setting(char setting[])
+{
+  oled.clear(0, 128, 2, 8);
+  oled.setCursor(0, 2);
+  oled.set2X();
+  oled.println(setting);
+}
 
 boolean button_pressed(int pin, boolean set_pressed)
 {
@@ -298,7 +295,7 @@ void timelapse()
   unsigned long delay_ms = 0UL;
   if (capture_ms == 0)
   {
-    capture_ms = 10UL;
+    capture_ms = 50UL;
   }
 
   Serial.print("duration / captures / interval: ");
@@ -327,8 +324,12 @@ void timelapse()
     delay(capture_ms);
     digitalWrite(PIN_SHUTTER, LOW);
 
-    delay_ms = max(((time_per_capture - (micros() - startTime)) / 1000.0 - steps_per_capture * 6) / 2.0, 0);
+    delay_ms = max(((time_per_capture - (micros() - startTime)) / 1000.0 - steps_per_capture * 2) / 2.0, 0);
     Serial.print("Delay: ");
+    Serial.print("         ");
+    Serial.print(time_per_capture);
+    Serial.print(" - ");
+    Serial.println(micros() - startTime);
     Serial.println(delay_ms);
     delay(delay_ms);
 
@@ -338,12 +339,18 @@ void timelapse()
       digitalWrite(PIN_STEP, HIGH);
       delay(1);
       digitalWrite(PIN_STEP, LOW);
-      delay(5);
+      delay(1);
     }
     digitalWrite(PIN_ENABLE, HIGH); // disable power to motor
 
     //delay(500); //reduce vibration (theory)
-    delay_ms = max((time_per_capture - (micros() - startTime)) / 1000.0, 0);
+    if (time_per_capture < (micros() - startTime)) {
+      delay_ms = 50;
+    }
+    else {
+      delay_ms = max((time_per_capture - (micros() - startTime)) / 1000.0, 0);
+    }
+    
     Serial.print("Delay 2: ");
     Serial.print("         ");
     Serial.print(time_per_capture);
