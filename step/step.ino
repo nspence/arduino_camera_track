@@ -152,17 +152,21 @@ void menu()
     case 1: //timelapse mode
       display_title("Num Captures?");
       display_setting(captures);
+      display_stats();
       menu_step = 2;
     case 2:
       if (button_pressed(PIN_SELECT))
       {
         captures = (captures + 25) % 1000;
+        duration = interval * captures;
         display_setting(captures);
+        display_stats();
       }
       else if (button_pressed(PIN_START)) {
         menu_step = 3;
         display_title("Interval (s)?");
         display_setting(interval);
+        display_stats();
       }
       
       break;
@@ -170,7 +174,9 @@ void menu()
       if (button_pressed(PIN_SELECT))
       {
         interval = (interval + 1) % 10;
+        duration = interval * captures;
         display_setting(interval);
+        display_stats();
       }
       else if (button_pressed(PIN_START)) {
         menu_step = 4;
@@ -262,10 +268,21 @@ void display_setting(int setting)
 
 void display_setting(char setting[])
 {
-  oled.clear(0, 128, 2, 8);
+  oled.clear(0, 128, 2, 6);
   oled.setCursor(0, 2);
   oled.set2X();
   oled.println(setting);
+}
+
+void display_stats()
+{
+  oled.clear(0, 128, 7, 8);
+  oled.setCursor(0, 7);
+  oled.set1X();
+  oled.print("Len (min): ");
+  oled.println(duration / 60);
+  oled.print("Video (sec): ");
+  oled.println(captures / 24);
 }
 
 boolean button_pressed(int pin, boolean set_pressed)
